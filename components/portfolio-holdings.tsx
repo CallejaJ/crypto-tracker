@@ -58,7 +58,9 @@ function CryptoIcon({
           height: size,
         }}
       >
-        <span className='text-white font-bold text-sm'>{symbol}</span>
+        <span className='text-white font-bold text-xs lg:text-sm'>
+          {symbol}
+        </span>
       </div>
     );
   }
@@ -116,15 +118,15 @@ export function PortfolioHoldings() {
 
   if (isLoading) {
     return (
-      <div className='space-y-6'>
-        <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6'>
+      <div className='space-y-4 lg:space-y-6'>
+        <div className='grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6'>
           {[...Array(4)].map((_, i) => (
             <Card key={i} className='bg-card'>
-              <CardContent className='p-6'>
+              <CardContent className='p-4 lg:p-6'>
                 <div className='animate-pulse'>
-                  <div className='h-4 bg-muted rounded w-3/4 mb-2'></div>
-                  <div className='h-8 bg-muted rounded w-1/2 mb-2'></div>
-                  <div className='h-4 bg-muted rounded w-1/4'></div>
+                  <div className='h-3 lg:h-4 bg-muted rounded w-3/4 mb-2'></div>
+                  <div className='h-6 lg:h-8 bg-muted rounded w-1/2 mb-2'></div>
+                  <div className='h-3 lg:h-4 bg-muted rounded w-1/4'></div>
                 </div>
               </CardContent>
             </Card>
@@ -135,35 +137,35 @@ export function PortfolioHoldings() {
   }
 
   return (
-    <div className='space-y-6'>
+    <div className='space-y-4 lg:space-y-6'>
       {/* Portfolio Summary Cards */}
-      <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6'>
+      <div className='grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6'>
         <Card className='bg-card'>
           <CardHeader className='pb-2'>
-            <CardTitle className='text-sm font-medium text-card-foreground'>
+            <CardTitle className='text-xs lg:text-sm font-medium text-card-foreground'>
               Total Portfolio Value
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className='text-2xl font-heading font-black text-card-foreground'>
+          <CardContent className='pb-3 lg:pb-4'>
+            <div className='text-lg lg:text-2xl font-heading font-black text-card-foreground'>
               $
               {metrics.totalValue.toLocaleString(undefined, {
-                maximumFractionDigits: 2,
+                maximumFractionDigits: 0,
               })}
             </div>
-            <div className='flex items-center mt-2'>
+            <div className='flex items-center mt-1 lg:mt-2'>
               {metrics.totalChange24h > 0 ? (
-                <TrendingUp className='h-4 w-4 text-green-500 mr-1' />
+                <TrendingUp className='h-3 w-3 lg:h-4 lg:w-4 text-green-500 mr-1' />
               ) : (
-                <TrendingDown className='h-4 w-4 text-red-500 mr-1' />
+                <TrendingDown className='h-3 w-3 lg:h-4 lg:w-4 text-red-500 mr-1' />
               )}
               <span
-                className={`text-sm ${
+                className={`text-xs lg:text-sm ${
                   metrics.totalChange24h > 0 ? "text-green-500" : "text-red-500"
                 }`}
               >
                 {metrics.totalChange24h > 0 ? "+" : ""}
-                {metrics.totalChange24h.toFixed(2)}% (24h)
+                {metrics.totalChange24h.toFixed(1)}%
               </span>
             </div>
           </CardContent>
@@ -171,54 +173,56 @@ export function PortfolioHoldings() {
 
         <Card className='bg-card'>
           <CardHeader className='pb-2'>
-            <CardTitle className='text-sm font-medium text-card-foreground'>
+            <CardTitle className='text-xs lg:text-sm font-medium text-card-foreground'>
               Total Profit/Loss
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className='text-2xl font-heading font-black text-card-foreground'>
+          <CardContent className='pb-3 lg:pb-4'>
+            <div className='text-lg lg:text-2xl font-heading font-black text-card-foreground'>
               +$
               {(metrics.totalValue * 0.173).toLocaleString(undefined, {
-                maximumFractionDigits: 2,
+                maximumFractionDigits: 0,
               })}
             </div>
-            <div className='flex items-center mt-2'>
-              <TrendingUp className='h-4 w-4 text-green-500 mr-1' />
-              <span className='text-sm text-green-500'>+17.3%</span>
+            <div className='flex items-center mt-1 lg:mt-2'>
+              <TrendingUp className='h-3 w-3 lg:h-4 lg:w-4 text-green-500 mr-1' />
+              <span className='text-xs lg:text-sm text-green-500'>+17.3%</span>
             </div>
           </CardContent>
         </Card>
 
         <Card className='bg-card'>
           <CardHeader className='pb-2'>
-            <CardTitle className='text-sm font-medium text-card-foreground'>
+            <CardTitle className='text-xs lg:text-sm font-medium text-card-foreground'>
               Active Alerts
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className='text-2xl font-heading font-black text-card-foreground'>
+          <CardContent className='pb-3 lg:pb-4'>
+            <div className='text-lg lg:text-2xl font-heading font-black text-card-foreground'>
               7
             </div>
-            <div className='flex items-center mt-2'>
-              <Bell className='h-4 w-4 text-primary mr-1' />
-              <span className='text-sm text-muted-foreground'>2 triggered</span>
+            <div className='flex items-center mt-1 lg:mt-2'>
+              <Bell className='h-3 w-3 lg:h-4 lg:w-4 text-primary mr-1' />
+              <span className='text-xs lg:text-sm text-muted-foreground'>
+                2 triggered
+              </span>
             </div>
           </CardContent>
         </Card>
 
         <Card className='bg-card'>
           <CardHeader className='pb-2'>
-            <CardTitle className='text-sm font-medium text-card-foreground'>
+            <CardTitle className='text-xs lg:text-sm font-medium text-card-foreground'>
               Best Performer
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className='text-2xl font-heading font-black text-card-foreground'>
+          <CardContent className='pb-3 lg:pb-4'>
+            <div className='text-lg lg:text-2xl font-heading font-black text-card-foreground'>
               {metrics.bestPerformer?.symbol || "ETH"}
             </div>
-            <div className='flex items-center mt-2'>
-              <TrendingUp className='h-4 w-4 text-green-500 mr-1' />
-              <span className='text-sm text-green-500'>
+            <div className='flex items-center mt-1 lg:mt-2'>
+              <TrendingUp className='h-3 w-3 lg:h-4 lg:w-4 text-green-500 mr-1' />
+              <span className='text-xs lg:text-sm text-green-500'>
                 +{metrics.bestPerformer?.change24h.toFixed(1) || "18.3"}%
               </span>
             </div>
@@ -229,15 +233,15 @@ export function PortfolioHoldings() {
       {/* Holdings Table */}
       <Card className='bg-card'>
         <CardHeader>
-          <div className='flex items-center justify-between'>
-            <CardTitle className='text-xl font-heading font-bold text-card-foreground'>
+          <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
+            <CardTitle className='text-lg lg:text-xl font-heading font-bold text-card-foreground'>
               Your Holdings
             </CardTitle>
             <Link href='/analytics'>
               <Button
                 variant='outline'
                 size='sm'
-                className='border-border text-foreground bg-transparent'
+                className='border-border text-foreground bg-transparent w-full sm:w-auto'
               >
                 <Activity className='mr-2 h-4 w-4' />
                 View Analytics
@@ -246,44 +250,44 @@ export function PortfolioHoldings() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className='space-y-4'>
+          <div className='space-y-3 lg:space-y-4'>
             {holdings.map((holding) => (
               <div
                 key={holding.symbol}
-                className='flex items-center justify-between p-4 rounded-lg bg-muted/20 hover:bg-muted/30 transition-colors'
+                className='flex items-center justify-between p-3 lg:p-4 rounded-lg bg-muted/20 hover:bg-muted/30 transition-colors'
               >
-                <div className='flex items-center space-x-4'>
+                <div className='flex items-center space-x-3 lg:space-x-4 min-w-0 flex-1'>
                   {/* Real crypto icon with hover effect */}
                   <CryptoIcon
                     symbol={holding.symbol}
-                    size={40}
-                    className='hover:scale-105 transition-transform'
+                    size={window.innerWidth < 768 ? 32 : 40}
+                    className='hover:scale-105 transition-transform flex-shrink-0'
                   />
-                  <div>
-                    <h3 className='font-heading font-bold text-card-foreground'>
+                  <div className='min-w-0 flex-1'>
+                    <h3 className='font-heading font-bold text-card-foreground text-sm lg:text-base truncate'>
                       {holding.name}
                     </h3>
-                    <p className='text-sm text-muted-foreground'>
-                      {holding.amount.toFixed(4)} {holding.symbol}
+                    <p className='text-xs lg:text-sm text-muted-foreground truncate'>
+                      {holding.amount.toFixed(2)} {holding.symbol}
                     </p>
                   </div>
                 </div>
-                <div className='flex items-center space-x-4'>
+                <div className='flex items-center space-x-2 lg:space-x-4'>
                   <div className='text-right'>
-                    <p className='font-heading font-bold text-card-foreground'>
+                    <p className='font-heading font-bold text-card-foreground text-sm lg:text-base'>
                       $
                       {holding.value.toLocaleString(undefined, {
-                        maximumFractionDigits: 2,
+                        maximumFractionDigits: 0,
                       })}
                     </p>
-                    <div className='flex items-center'>
+                    <div className='flex items-center justify-end'>
                       {holding.change24h > 0 ? (
                         <TrendingUp className='h-3 w-3 text-green-500 mr-1' />
                       ) : (
                         <TrendingDown className='h-3 w-3 text-red-500 mr-1' />
                       )}
                       <span
-                        className={`text-sm ${
+                        className={`text-xs lg:text-sm ${
                           holding.change24h > 0
                             ? "text-green-500"
                             : "text-red-500"
@@ -298,21 +302,23 @@ export function PortfolioHoldings() {
                     variant='ghost'
                     size='sm'
                     onClick={() => handleEditHolding(holding)}
-                    className='text-muted-foreground hover:text-foreground'
+                    className='text-muted-foreground hover:text-foreground p-1 lg:p-2'
                   >
-                    <Edit className='h-4 w-4' />
+                    <Edit className='h-3 w-3 lg:h-4 lg:w-4' />
                   </Button>
                 </div>
               </div>
             ))}
           </div>
 
-          <div className='mt-6 flex gap-4'>
-            <AddCryptoModal onAddCrypto={handleAddCrypto} />
-            <Link href='/alerts'>
+          <div className='mt-4 lg:mt-6 flex flex-col sm:flex-row gap-3 lg:gap-4'>
+            <div className='flex-1'>
+              <AddCryptoModal onAddCrypto={handleAddCrypto} />
+            </div>
+            <Link href='/alerts' className='flex-1 sm:flex-initial'>
               <Button
                 variant='outline'
-                className='border-border text-foreground bg-transparent'
+                className='border-border text-foreground bg-transparent w-full sm:w-auto'
               >
                 Set Alert
               </Button>
