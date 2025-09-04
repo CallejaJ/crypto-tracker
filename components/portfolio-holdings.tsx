@@ -3,12 +3,82 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, TrendingDown, Bell, Activity, Edit } from "lucide-react";
-import { usePortfolioData } from "@/hooks/use-crypto-data";
 import { AddCryptoModalFixed as AddCryptoModal } from "./add-crypto-modal-fixed";
-
 import { EditHoldingModal } from "./edit-holding-modal";
 import { useState } from "react";
 import Link from "next/link";
+import { usePortfolioData } from "@/hooks/use-crypto-data";
+import Image from "next/image";
+
+// Crypto icon URLs (CoinGecko provides free access)
+const CRYPTO_ICON_URLS: Record<string, string> = {
+  BTC: "https://assets.coingecko.com/coins/images/1/large/bitcoin.png",
+  ETH: "https://assets.coingecko.com/coins/images/279/large/ethereum.png",
+  SOL: "https://assets.coingecko.com/coins/images/4128/large/solana.png",
+  ADA: "https://assets.coingecko.com/coins/images/975/large/cardano.png",
+  DOT: "https://assets.coingecko.com/coins/images/12171/large/polkadot.png",
+  LINK: "https://assets.coingecko.com/coins/images/877/large/chainlink-new-logo.png",
+  AVAX: "https://assets.coingecko.com/coins/images/12559/large/Avalanche_Circle_RedWhite_Trans.png",
+  MATIC:
+    "https://assets.coingecko.com/coins/images/4713/large/matic-token-icon.png",
+};
+
+// Crypto icon component with fallback
+function CryptoIcon({
+  symbol,
+  size = 40,
+  className = "",
+}: {
+  symbol: string;
+  size?: number;
+  className?: string;
+}) {
+  const iconUrl = CRYPTO_ICON_URLS[symbol];
+  const [imageError, setImageError] = useState(false);
+
+  if (!iconUrl || imageError) {
+    // Fallback to colored circle
+    const colorMap: Record<string, string> = {
+      BTC: "#f97316",
+      ETH: "#3b82f6",
+      SOL: "#8b5cf6",
+      ADA: "#06b6d4",
+      DOT: "#e91e63",
+      LINK: "#2563eb",
+      AVAX: "#ef4444",
+      MATIC: "#7c3aed",
+    };
+
+    return (
+      <div
+        className={`rounded-full flex items-center justify-center ${className}`}
+        style={{
+          backgroundColor: colorMap[symbol] || "#6b7280",
+          width: size,
+          height: size,
+        }}
+      >
+        <span className='text-white font-bold text-sm'>{symbol}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`relative ${className}`}
+      style={{ width: size, height: size }}
+    >
+      <Image
+        src={iconUrl}
+        alt={`${symbol} icon`}
+        fill
+        className='rounded-full object-cover'
+        onError={() => setImageError(true)}
+        sizes={`${size}px`}
+      />
+    </div>
+  );
+}
 
 export function PortfolioHoldings() {
   const {
@@ -180,17 +250,15 @@ export function PortfolioHoldings() {
             {holdings.map((holding) => (
               <div
                 key={holding.symbol}
-                className='flex items-center justify-between p-4 rounded-lg bg-muted/20'
+                className='flex items-center justify-between p-4 rounded-lg bg-muted/20 hover:bg-muted/30 transition-colors'
               >
                 <div className='flex items-center space-x-4'>
-                  <div
-                    className='w-10 h-10 rounded-full flex items-center justify-center'
-                    style={{ backgroundColor: holding.icon }}
-                  >
-                    <span className='text-white font-bold text-sm'>
-                      {holding.symbol}
-                    </span>
-                  </div>
+                  {/* Real crypto icon with hover effect */}
+                  <CryptoIcon
+                    symbol={holding.symbol}
+                    size={40}
+                    className='hover:scale-105 transition-transform'
+                  />
                   <div>
                     <h3 className='font-heading font-bold text-card-foreground'>
                       {holding.name}
