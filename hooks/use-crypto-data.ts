@@ -1,203 +1,296 @@
-"use client"
+// hooks/use-crypto-data.ts
+"use client";
 
-import { useState, useEffect } from "react"
-import useSWR from "swr"
-import { cryptoOracle } from "@/lib/crypto-oracle"
-import {
-  fetchCryptoPrices,
-  fetchPortfolioData,
-  calculatePortfolioMetrics,
-  type CryptoPrice,
-  type PortfolioHolding,
-} from "@/lib/crypto-api"
+import { useState, useEffect, useMemo } from "react";
+import { improvedCryptoOracle } from "@/lib/improved-crypto-oracle";
+import { SUPPORTED_CRYPTOS, BASE_PRICES } from "@/lib/crypto-config";
 
-const USE_REAL_ORACLE = process.env.NEXT_PUBLIC_USE_REAL_ORACLE === "true"
-
-const fetchRealCryptoPrices = async (): Promise<CryptoPrice[]> => {
-  if (USE_REAL_ORACLE) {
-    try {
-      const response = await fetch(
-        "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=20&page=1",
-      )
-      const data = await response.json()
-
-      return data.map((coin: any) => ({
-        symbol: coin.symbol.toUpperCase(),
-        name: coin.name,
-        price: coin.current_price,
-        change24h: coin.price_change_percentage_24h || 0,
-        marketCap: coin.market_cap,
-        volume: coin.total_volume,
-        icon: coin.image,
-      }))
-    } catch (error) {
-      console.error("Real oracle fetch failed, falling back to mock data:", error)
-      return fetchCryptoPrices()
-    }
-  }
-  return fetchCryptoPrices()
+interface CryptoPrice {
+  id: string;
+  symbol: string;
+  name: string;
+  price: number;
+  change24h: number;
+  marketCap?: number;
+  volume24h?: number;
+  icon: string;
 }
 
+interface Holding {
+  symbol: string;
+  name: string;
+  amount: number;
+  price: number;
+  value: number;
+  change24h: number;
+  icon: string;
+}
+
+interface PortfolioMetrics {
+  totalValue: number;
+  totalChange24h: number;
+  bestPerformer: { symbol: string; change24h: number } | null;
+  worstPerformer: { symbol: string; change24h: number } | null;
+}
+
+// Check if we should use real oracle data
+const isUsingRealOracle = () => {
+  const envValue =
+    process.env.NEXT_PUBLIC_USE_REAL_ORACLE ||
+    process.env.PUBLIC_USE_REAL_ORACLE ||
+    "false";
+
+  return envValue !== "false" && envValue !== "demo";
+};
+
+// Main crypto prices hook
 export function useCryptoPrices() {
-  const [realtimePrices, setRealtimePrices] = useState<Record<string, number>>({})
+  const [prices, setPrices] = useState<CryptoPrice[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isError, setIsError] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const realOracle = isUsingRealOracle();
 
-  const { data, error, mutate } = useSWR<CryptoPrice[]>("crypto-prices", fetchRealCryptoPrices, {
-    refreshInterval: USE_REAL_ORACLE ? 30000 : 5000, // Real oracle updates less frequently
-    revalidateOnFocus: true,
-  })
+  // Default crypto list from configuration
+  const defaultCryptos = SUPPORTED_CRYPTOS;
 
+  // Fetch prices function
+  const fetchPrices = async () => {
+    try {
+      setIsError(false);
+
+      if (realOracle) {
+        // Use real API - improved oracle with Binance
+        const coinIds = defaultCryptos.map((c) => c.id);
+        const priceData = await improvedCryptoOracle.getSimplePrices(coinIds);
+        const marketData = await improvedCryptoOracle.getMarketData(coinIds);
+
+        const processedPrices: CryptoPrice[] = defaultCryptos.map((crypto) => {
+          const price = priceData[crypto.id] || BASE_PRICES[crypto.id] || 100;
+          const market = marketData[crypto.id];
+
+          return {
+            id: crypto.id,
+            symbol: crypto.symbol,
+            name: crypto.name,
+            price: price,
+            change24h: market?.changePercent24Hr || (Math.random() - 0.5) * 10,
+            marketCap: market?.marketCap,
+            volume24h: market?.volume24h,
+            icon: crypto.icon,
+          };
+        });
+
+        setPrices(processedPrices);
+        console.log(`✅ Loaded ${processedPrices.length} crypto prices`);
+      } else {
+        // Use simulated data with more realistic base prices
+        const simulatedPrices: CryptoPrice[] = defaultCryptos.map((crypto) => {
+          const basePrice = BASE_PRICES[crypto.id] || 100;
+
+          return {
+            id: crypto.id,
+            symbol: crypto.symbol,
+            name: crypto.name,
+            price: basePrice + (Math.random() - 0.5) * basePrice * 0.05, // ±5% variation
+            change24h: (Math.random() - 0.5) * 15, // ±15% change
+            marketCap: Math.random() * 1000000000,
+            volume24h: Math.random() * 100000000,
+            icon: crypto.icon,
+          };
+        });
+
+        setPrices(simulatedPrices);
+      }
+
+      setLastUpdate(new Date());
+    } catch (error) {
+      console.error("Failed to fetch crypto prices:", error);
+      setIsError(true);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Initial fetch
   useEffect(() => {
-    if (USE_REAL_ORACLE && data) {
-      const coinIds = data.map((coin) => coin.name.toLowerCase().replace(/\s+/g, "-"))
+    fetchPrices();
+  }, []);
 
-      cryptoOracle.connectWebSocket((prices) => {
-        setRealtimePrices(prices)
-      })
+  // Set up periodic updates and WebSocket
+  useEffect(() => {
+    const interval = setInterval(fetchPrices, realOracle ? 30000 : 5000); // 30s for real, 5s for demo
 
-      // Periodic real-time price updates
-      const interval = setInterval(async () => {
-        const prices = await cryptoOracle.getRealTimePrices(coinIds)
-        setRealtimePrices((prev) => ({ ...prev, ...prices }))
-      }, 10000)
+    // WebSocket for real-time updates (only for real oracle)
+    if (realOracle && typeof window !== "undefined") {
+      const coinIds = defaultCryptos.map((c) => c.id);
+
+      // Add a delay to avoid connection issues
+      const wsTimeout = setTimeout(() => {
+        improvedCryptoOracle.connectWebSocket(coinIds, (newPrices) => {
+          setPrices((prevPrices) =>
+            prevPrices.map((price) => ({
+              ...price,
+              price: newPrices[price.id] || price.price,
+            }))
+          );
+          setLastUpdate(new Date());
+        });
+      }, 2000); // Increased delay
 
       return () => {
-        clearInterval(interval)
-        cryptoOracle.disconnect()
-      }
+        clearInterval(interval);
+        clearTimeout(wsTimeout);
+        improvedCryptoOracle.disconnect();
+      };
     }
-  }, [data])
 
-  const enrichedData = data?.map((coin) => ({
-    ...coin,
-    price: realtimePrices[coin.name.toLowerCase().replace(/\s+/g, "-")] || coin.price,
-  }))
+    return () => {
+      clearInterval(interval);
+    };
+  }, [realOracle]);
 
   return {
-    prices: enrichedData || [],
-    isLoading: !error && !data,
-    isError: error,
-    refresh: mutate,
-    isUsingRealOracle: USE_REAL_ORACLE,
-  }
+    prices,
+    isLoading,
+    isError,
+    isUsingRealOracle: realOracle,
+    lastUpdate,
+    refetch: fetchPrices,
+  };
 }
 
+// Portfolio data hook
 export function usePortfolioData() {
-  const { data, error, mutate } = useSWR<PortfolioHolding[]>("portfolio-data", fetchPortfolioData, {
-    refreshInterval: 5000, // Update every 5 seconds
-    revalidateOnFocus: true,
-  })
+  const { prices, isLoading: pricesLoading } = useCryptoPrices();
+  const [holdings, setHoldings] = useState<Holding[]>(() => {
+    // Initialize with some default holdings
+    return [
+      {
+        symbol: "BTC",
+        name: "Bitcoin",
+        amount: 0.5,
+        price: 43000,
+        value: 21500,
+        change24h: 2.5,
+        icon: "#f97316",
+      },
+      {
+        symbol: "ETH",
+        name: "Ethereum",
+        amount: 8.2,
+        price: 2600,
+        value: 21320,
+        change24h: 5.2,
+        icon: "#3b82f6",
+      },
+      {
+        symbol: "SOL",
+        name: "Solana",
+        amount: 52,
+        price: 98,
+        value: 5096,
+        change24h: -2.1,
+        icon: "#8b5cf6",
+      },
+    ];
+  });
 
-  const [metrics, setMetrics] = useState({
-    totalValue: 0,
-    totalChange24h: 0,
-    bestPerformer: null as PortfolioHolding | null,
-    worstPerformer: null as PortfolioHolding | null,
-  })
-
-  const [localHoldings, setLocalHoldings] = useState<PortfolioHolding[]>([])
-
+  // Update holdings with current prices
   useEffect(() => {
-    if (data) {
-      setLocalHoldings(data)
-      const newMetrics = calculatePortfolioMetrics(data)
-      setMetrics(newMetrics)
+    if (!pricesLoading && prices.length > 0) {
+      setHoldings((prevHoldings) =>
+        prevHoldings.map((holding) => {
+          const priceData = prices.find((p) => p.symbol === holding.symbol);
+          if (priceData) {
+            return {
+              ...holding,
+              price: priceData.price,
+              value: holding.amount * priceData.price,
+              change24h: priceData.change24h,
+              icon: priceData.icon,
+            };
+          }
+          return holding;
+        })
+      );
     }
-  }, [data])
+  }, [prices, pricesLoading]);
 
-  const addHolding = (crypto: { symbol: string; name: string; amount: number; price: number }) => {
-    const newHolding: PortfolioHolding = {
-      symbol: crypto.symbol,
-      name: crypto.name,
-      amount: crypto.amount,
-      price: crypto.price,
+  // Calculate portfolio metrics
+  const metrics = useMemo((): PortfolioMetrics => {
+    const totalValue = holdings.reduce(
+      (sum, holding) => sum + holding.value,
+      0
+    );
+
+    // Calculate weighted average change
+    const totalChange24h = holdings.reduce((sum, holding) => {
+      const weight = holding.value / totalValue;
+      return sum + holding.change24h * weight;
+    }, 0);
+
+    // Find best and worst performers
+    const bestPerformer = holdings.reduce(
+      (best, current) =>
+        !best || current.change24h > best.change24h ? current : best,
+      null as Holding | null
+    );
+
+    const worstPerformer = holdings.reduce(
+      (worst, current) =>
+        !worst || current.change24h < worst.change24h ? current : worst,
+      null as Holding | null
+    );
+
+    return {
+      totalValue,
+      totalChange24h,
+      bestPerformer: bestPerformer
+        ? { symbol: bestPerformer.symbol, change24h: bestPerformer.change24h }
+        : null,
+      worstPerformer: worstPerformer
+        ? { symbol: worstPerformer.symbol, change24h: worstPerformer.change24h }
+        : null,
+    };
+  }, [holdings]);
+
+  // Portfolio management functions
+  const addHolding = (crypto: {
+    symbol: string;
+    name: string;
+    amount: number;
+    price: number;
+  }) => {
+    const newHolding: Holding = {
+      ...crypto,
       value: crypto.amount * crypto.price,
-      change24h: Math.random() * 20 - 10, // Random change for demo
-      icon: `hsl(${Math.random() * 360}, 70%, 50%)`, // Random color
-    }
-
-    const updatedHoldings = [...localHoldings, newHolding]
-    setLocalHoldings(updatedHoldings)
-
-    // Update metrics
-    const newMetrics = calculatePortfolioMetrics(updatedHoldings)
-    setMetrics(newMetrics)
-
-    console.log("[v0] Added new holding:", newHolding)
-  }
+      change24h: 0,
+      icon: prices.find((p) => p.symbol === crypto.symbol)?.icon || "#6b7280",
+    };
+    setHoldings((prev) => [...prev, newHolding]);
+  };
 
   const updateHolding = (symbol: string, newAmount: number) => {
-    const updatedHoldings = localHoldings.map((holding) => {
-      if (holding.symbol === symbol) {
-        return {
-          ...holding,
-          amount: newAmount,
-          value: newAmount * holding.price,
-        }
-      }
-      return holding
-    })
-
-    setLocalHoldings(updatedHoldings)
-
-    // Update metrics
-    const newMetrics = calculatePortfolioMetrics(updatedHoldings)
-    setMetrics(newMetrics)
-
-    console.log("[v0] Updated holding:", symbol, "new amount:", newAmount)
-  }
+    setHoldings((prev) =>
+      prev.map((holding) =>
+        holding.symbol === symbol
+          ? { ...holding, amount: newAmount, value: newAmount * holding.price }
+          : holding
+      )
+    );
+  };
 
   const removeHolding = (symbol: string) => {
-    const updatedHoldings = localHoldings.filter((holding) => holding.symbol !== symbol)
-    setLocalHoldings(updatedHoldings)
-
-    // Update metrics
-    const newMetrics = calculatePortfolioMetrics(updatedHoldings)
-    setMetrics(newMetrics)
-
-    console.log("[v0] Removed holding:", symbol)
-  }
+    setHoldings((prev) => prev.filter((holding) => holding.symbol !== symbol));
+  };
 
   return {
-    holdings: localHoldings,
+    holdings,
     metrics,
-    isLoading: !error && !data,
-    isError: error,
-    refresh: mutate,
+    isLoading: pricesLoading,
     addHolding,
     updateHolding,
     removeHolding,
-  }
-}
-
-export function useRealTimeAlerts() {
-  const { prices } = useCryptoPrices()
-  const [triggeredAlerts, setTriggeredAlerts] = useState<string[]>([])
-
-  useEffect(() => {
-    prices.forEach((price) => {
-      const alertKey = `${price.symbol.toLowerCase()}-price-alert`
-
-      // Dynamic alert checking based on real prices
-      if (price.symbol === "BTC" && price.price > 45000) {
-        if (!triggeredAlerts.includes(`${alertKey}-above-45000`)) {
-          setTriggeredAlerts((prev) => [...prev, `${alertKey}-above-45000`])
-          console.log(`[v0] Real Alert: BTC is above $45,000 at $${price.price.toFixed(2)}`)
-        }
-      }
-
-      if (price.symbol === "ETH" && price.price < 2200) {
-        if (!triggeredAlerts.includes(`${alertKey}-below-2200`)) {
-          setTriggeredAlerts((prev) => [...prev, `${alertKey}-below-2200`])
-          console.log(`[v0] Real Alert: ETH is below $2,200 at $${price.price.toFixed(2)}`)
-        }
-      }
-    })
-  }, [prices, triggeredAlerts])
-
-  return {
-    triggeredAlerts,
-    clearAlert: (alertId: string) => {
-      setTriggeredAlerts((prev) => prev.filter((id) => id !== alertId))
-    },
-  }
+  };
 }
