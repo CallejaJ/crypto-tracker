@@ -1,44 +1,54 @@
+// components/portfolio-holdings.tsx (SIN ERRORES DE HIDRATACIÓN)
 "use client";
 
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, TrendingDown, Bell, Activity, Edit } from "lucide-react";
-import { AddCryptoModalFixed as AddCryptoModal } from "./add-crypto-modal-fixed";
-import { EditHoldingModal } from "./edit-holding-modal";
-import { useState } from "react";
+import { TrendingUp, TrendingDown, Edit, Activity, Bell } from "lucide-react";
 import Link from "next/link";
-import { usePortfolioData } from "@/hooks/use-crypto-data";
-import Image from "next/image";
+import { usePortfolioSync } from "@/hooks/use-portfolio-sync";
+import { useCryptoPrices } from "@/hooks/use-crypto-data";
+import { AddCryptoModalFixed } from "./add-crypto-modal-fixed";
+import { EditHoldingModal } from "./edit-holding-modal";
 
-// Crypto icon URLs (CoinGecko provides free access)
-const CRYPTO_ICON_URLS: Record<string, string> = {
-  BTC: "https://assets.coingecko.com/coins/images/1/large/bitcoin.png",
-  ETH: "https://assets.coingecko.com/coins/images/279/large/ethereum.png",
-  SOL: "https://assets.coingecko.com/coins/images/4128/large/solana.png",
-  ADA: "https://assets.coingecko.com/coins/images/975/large/cardano.png",
-  DOT: "https://assets.coingecko.com/coins/images/12171/large/polkadot.png",
-  LINK: "https://assets.coingecko.com/coins/images/877/large/chainlink-new-logo.png",
-  AVAX: "https://assets.coingecko.com/coins/images/12559/large/Avalanche_Circle_RedWhite_Trans.png",
-  MATIC:
-    "https://assets.coingecko.com/coins/images/4713/large/matic-token-icon.png",
-};
+// Hook para hidratación segura
+function useIsHydrated() {
+  const [isHydrated, setIsHydrated] = useState(false);
 
-// Crypto icon component with fallback
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
+
+  return isHydrated;
+}
+
+// Componente para icono de crypto (sin lógica de cliente)
 function CryptoIcon({
   symbol,
-  size = 40,
-  className = "",
+  className = "h-10 w-10 lg:h-10 lg:w-10",
 }: {
   symbol: string;
-  size?: number;
   className?: string;
 }) {
-  const iconUrl = CRYPTO_ICON_URLS[symbol];
-  const [imageError, setImageError] = useState(false);
+  const [iconError, setIconError] = useState(false);
 
-  if (!iconUrl || imageError) {
-    // Fallback to colored circle
-    const colorMap: Record<string, string> = {
+  // URLs de iconos de CoinGecko
+  const iconUrls: Record<string, string> = {
+    BTC: "https://assets.coingecko.com/coins/images/1/large/bitcoin.png",
+    ETH: "https://assets.coingecko.com/coins/images/279/large/ethereum.png",
+    SOL: "https://assets.coingecko.com/coins/images/4128/large/solana.png",
+    ADA: "https://assets.coingecko.com/coins/images/975/large/cardano.png",
+    DOT: "https://assets.coingecko.com/coins/images/12171/large/polkadot.png",
+    LINK: "https://assets.coingecko.com/coins/images/877/large/chainlink-new-logo.png",
+    AVAX: "https://assets.coingecko.com/coins/images/12559/large/Avalanche_Circle_RedWhite_Trans.png",
+    MATIC:
+      "https://assets.coingecko.com/coins/images/4713/large/matic-token-icon.png",
+  };
+
+  const iconUrl = iconUrls[symbol];
+
+  if (iconError || !iconUrl) {
+    const colors: Record<string, string> = {
       BTC: "#f97316",
       ETH: "#3b82f6",
       SOL: "#8b5cf6",
@@ -52,89 +62,141 @@ function CryptoIcon({
     return (
       <div
         className={`rounded-full flex items-center justify-center ${className}`}
-        style={{
-          backgroundColor: colorMap[symbol] || "#6b7280",
-          width: size,
-          height: size,
-        }}
+        style={{ backgroundColor: colors[symbol] || "#6b7280" }}
       >
-        <span className='text-white font-bold text-xs lg:text-sm'>
-          {symbol}
-        </span>
+        <span className='text-white font-bold text-xs'>{symbol}</span>
       </div>
     );
   }
 
   return (
-    <div
-      className={`relative ${className}`}
-      style={{ width: size, height: size }}
-    >
-      <Image
-        src={iconUrl}
-        alt={`${symbol} icon`}
-        fill
-        className='rounded-full object-cover'
-        onError={() => setImageError(true)}
-        sizes={`${size}px`}
-      />
+    <img
+      src={iconUrl}
+      alt={symbol}
+      className={`${className} rounded-full`}
+      onError={() => setIconError(true)}
+    />
+  );
+}
+
+// Componente de loading que es idéntico en servidor y cliente
+function LoadingCards() {
+  return (
+    <div className='space-y-4 lg:space-y-6'>
+      <div className='grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6'>
+        {[...Array(4)].map((_, i) => (
+          <Card key={i} className='bg-card'>
+            <CardContent className='p-4 lg:p-6'>
+              <div className='animate-pulse'>
+                <div className='h-3 lg:h-4 bg-muted rounded w-3/4 mb-2'></div>
+                <div className='h-6 lg:h-8 bg-muted rounded w-1/2 mb-2'></div>
+                <div className='h-3 lg:h-4 bg-muted rounded w-1/4'></div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }
 
 export function PortfolioHoldings() {
+  const isHydrated = useIsHydrated();
+  const { prices } = useCryptoPrices();
   const {
     holdings,
-    metrics,
+    alerts,
     isLoading,
     addHolding,
     updateHolding,
-    removeHolding,
-  } = usePortfolioData();
+    deleteHolding,
+    getTotalPortfolioValue,
+    getPortfolioPerformance,
+  } = usePortfolioSync();
+
   const [editingHolding, setEditingHolding] = useState<any>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
-  const handleAddCrypto = (crypto: {
+  // Si no está hidratado o está cargando, mostrar loading
+  if (!isHydrated || isLoading) {
+    return <LoadingCards />;
+  }
+
+  // Convertir precios a formato necesario
+  const priceMap = prices.reduce((acc, price) => {
+    acc[price.symbol] = price.price;
+    return acc;
+  }, {} as Record<string, number>);
+
+  // Calcular métricas del portfolio
+  const portfolioStats = getPortfolioPerformance(priceMap);
+  const totalValue = getTotalPortfolioValue(priceMap);
+
+  // Convertir holdings de sync a formato de tu componente actual
+  const formattedHoldings = holdings.map((holding) => {
+    const currentPrice = priceMap[holding.symbol] || holding.averagePrice;
+    const value = holding.amount * currentPrice;
+    const change24h =
+      ((currentPrice - holding.averagePrice) / holding.averagePrice) * 100;
+
+    return {
+      symbol: holding.symbol,
+      name: holding.name,
+      amount: holding.amount,
+      value: value,
+      change24h: change24h,
+      price: currentPrice,
+    };
+  });
+
+  // Encontrar mejor performer
+  const bestPerformer = formattedHoldings.reduce((best, current) => {
+    return current.change24h > (best?.change24h || -Infinity) ? current : best;
+  }, formattedHoldings[0]);
+
+  // Calcular cambio total 24h del portfolio
+  const totalChange24h =
+    portfolioStats.totalInvested > 0
+      ? ((totalValue - portfolioStats.totalInvested) /
+          portfolioStats.totalInvested) *
+        100
+      : 0;
+
+  const handleAddCrypto = async (crypto: {
     symbol: string;
     name: string;
     amount: number;
     price: number;
   }) => {
-    addHolding(crypto);
+    await addHolding({
+      symbol: crypto.symbol,
+      name: crypto.name,
+      amount: crypto.amount,
+      averagePrice: crypto.price,
+      purchaseDate: new Date(),
+      notes: `Added via quick add`,
+    });
   };
 
   const handleEditHolding = (holding: any) => {
-    setEditingHolding(holding);
+    const syncHolding = holdings.find((h) => h.symbol === holding.symbol);
+    setEditingHolding(syncHolding);
     setEditModalOpen(true);
   };
 
-  const handleUpdateHolding = (symbol: string, newAmount: number) => {
-    updateHolding(symbol, newAmount);
+  const handleUpdateHolding = async (symbol: string, newAmount: number) => {
+    const holding = holdings.find((h) => h.symbol === symbol);
+    if (holding) {
+      await updateHolding(holding.id, { amount: newAmount });
+    }
   };
 
-  const handleRemoveHolding = (symbol: string) => {
-    removeHolding(symbol);
+  const handleRemoveHolding = async (symbol: string) => {
+    const holding = holdings.find((h) => h.symbol === symbol);
+    if (holding) {
+      await deleteHolding(holding.id);
+    }
   };
-
-  if (isLoading) {
-    return (
-      <div className='space-y-4 lg:space-y-6'>
-        <div className='grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6'>
-          {[...Array(4)].map((_, i) => (
-            <Card key={i} className='bg-card'>
-              <CardContent className='p-4 lg:p-6'>
-                <div className='animate-pulse'>
-                  <div className='h-3 lg:h-4 bg-muted rounded w-3/4 mb-2'></div>
-                  <div className='h-6 lg:h-8 bg-muted rounded w-1/2 mb-2'></div>
-                  <div className='h-3 lg:h-4 bg-muted rounded w-1/4'></div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className='space-y-4 lg:space-y-6'>
@@ -149,23 +211,23 @@ export function PortfolioHoldings() {
           <CardContent className='pb-3 lg:pb-4'>
             <div className='text-lg lg:text-2xl font-heading font-black text-card-foreground'>
               $
-              {metrics.totalValue.toLocaleString(undefined, {
+              {totalValue.toLocaleString(undefined, {
                 maximumFractionDigits: 0,
               })}
             </div>
             <div className='flex items-center mt-1 lg:mt-2'>
-              {metrics.totalChange24h > 0 ? (
+              {totalChange24h > 0 ? (
                 <TrendingUp className='h-3 w-3 lg:h-4 lg:w-4 text-green-500 mr-1' />
               ) : (
                 <TrendingDown className='h-3 w-3 lg:h-4 lg:w-4 text-red-500 mr-1' />
               )}
               <span
                 className={`text-xs lg:text-sm ${
-                  metrics.totalChange24h > 0 ? "text-green-500" : "text-red-500"
+                  totalChange24h > 0 ? "text-green-500" : "text-red-500"
                 }`}
               >
-                {metrics.totalChange24h > 0 ? "+" : ""}
-                {metrics.totalChange24h.toFixed(1)}%
+                {totalChange24h > 0 ? "+" : ""}
+                {totalChange24h.toFixed(1)}%
               </span>
             </div>
           </CardContent>
@@ -178,15 +240,37 @@ export function PortfolioHoldings() {
             </CardTitle>
           </CardHeader>
           <CardContent className='pb-3 lg:pb-4'>
-            <div className='text-lg lg:text-2xl font-heading font-black text-card-foreground'>
-              +$
-              {(metrics.totalValue * 0.173).toLocaleString(undefined, {
-                maximumFractionDigits: 0,
-              })}
+            <div
+              className={`text-lg lg:text-2xl font-heading font-black ${
+                portfolioStats.totalGainLoss >= 0
+                  ? "text-green-500"
+                  : "text-red-500"
+              }`}
+            >
+              {portfolioStats.totalGainLoss >= 0 ? "+" : ""}$
+              {Math.abs(portfolioStats.totalGainLoss).toLocaleString(
+                undefined,
+                {
+                  maximumFractionDigits: 0,
+                }
+              )}
             </div>
             <div className='flex items-center mt-1 lg:mt-2'>
-              <TrendingUp className='h-3 w-3 lg:h-4 lg:w-4 text-green-500 mr-1' />
-              <span className='text-xs lg:text-sm text-green-500'>+17.3%</span>
+              {portfolioStats.totalGainLossPercentage >= 0 ? (
+                <TrendingUp className='h-3 w-3 lg:h-4 lg:w-4 text-green-500 mr-1' />
+              ) : (
+                <TrendingDown className='h-3 w-3 lg:h-4 lg:w-4 text-red-500 mr-1' />
+              )}
+              <span
+                className={`text-xs lg:text-sm ${
+                  portfolioStats.totalGainLossPercentage >= 0
+                    ? "text-green-500"
+                    : "text-red-500"
+                }`}
+              >
+                {portfolioStats.totalGainLossPercentage >= 0 ? "+" : ""}
+                {portfolioStats.totalGainLossPercentage.toFixed(1)}%
+              </span>
             </div>
           </CardContent>
         </Card>
@@ -199,12 +283,13 @@ export function PortfolioHoldings() {
           </CardHeader>
           <CardContent className='pb-3 lg:pb-4'>
             <div className='text-lg lg:text-2xl font-heading font-black text-card-foreground'>
-              7
+              {alerts.filter((a) => a.status === "active").length}
             </div>
             <div className='flex items-center mt-1 lg:mt-2'>
               <Bell className='h-3 w-3 lg:h-4 lg:w-4 text-primary mr-1' />
               <span className='text-xs lg:text-sm text-muted-foreground'>
-                2 triggered
+                {alerts.filter((a) => a.status === "triggered").length}{" "}
+                triggered
               </span>
             </div>
           </CardContent>
@@ -218,12 +303,23 @@ export function PortfolioHoldings() {
           </CardHeader>
           <CardContent className='pb-3 lg:pb-4'>
             <div className='text-lg lg:text-2xl font-heading font-black text-card-foreground'>
-              {metrics.bestPerformer?.symbol || "ETH"}
+              {bestPerformer?.symbol || "N/A"}
             </div>
             <div className='flex items-center mt-1 lg:mt-2'>
-              <TrendingUp className='h-3 w-3 lg:h-4 lg:w-4 text-green-500 mr-1' />
-              <span className='text-xs lg:text-sm text-green-500'>
-                +{metrics.bestPerformer?.change24h.toFixed(1) || "18.3"}%
+              {(bestPerformer?.change24h || 0) >= 0 ? (
+                <TrendingUp className='h-3 w-3 lg:h-4 lg:w-4 text-green-500 mr-1' />
+              ) : (
+                <TrendingDown className='h-3 w-3 lg:h-4 lg:w-4 text-red-500 mr-1' />
+              )}
+              <span
+                className={`text-xs lg:text-sm ${
+                  (bestPerformer?.change24h || 0) >= 0
+                    ? "text-green-500"
+                    : "text-red-500"
+                }`}
+              >
+                {(bestPerformer?.change24h || 0) >= 0 ? "+" : ""}
+                {(bestPerformer?.change24h || 0).toFixed(1)}%
               </span>
             </div>
           </CardContent>
@@ -251,17 +347,15 @@ export function PortfolioHoldings() {
         </CardHeader>
         <CardContent>
           <div className='space-y-3 lg:space-y-4'>
-            {holdings.map((holding) => (
+            {formattedHoldings.map((holding) => (
               <div
                 key={holding.symbol}
                 className='flex items-center justify-between p-3 lg:p-4 rounded-lg bg-muted/20 hover:bg-muted/30 transition-colors'
               >
                 <div className='flex items-center space-x-3 lg:space-x-4 min-w-0 flex-1'>
-                  {/* Real crypto icon with hover effect */}
                   <CryptoIcon
                     symbol={holding.symbol}
-                    size={window.innerWidth < 768 ? 32 : 40}
-                    className='hover:scale-105 transition-transform flex-shrink-0'
+                    className='hover:scale-105 transition-transform flex-shrink-0 h-8 w-8 lg:h-10 lg:w-10'
                   />
                   <div className='min-w-0 flex-1'>
                     <h3 className='font-heading font-bold text-card-foreground text-sm lg:text-base truncate'>
@@ -313,7 +407,7 @@ export function PortfolioHoldings() {
 
           <div className='mt-4 lg:mt-6 flex flex-col sm:flex-row gap-3 lg:gap-4'>
             <div className='flex-1'>
-              <AddCryptoModal onAddCrypto={handleAddCrypto} />
+              <AddCryptoModalFixed onAddCrypto={handleAddCrypto} />
             </div>
             <Link href='/alerts' className='flex-1 sm:flex-initial'>
               <Button
