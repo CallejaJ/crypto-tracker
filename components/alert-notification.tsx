@@ -28,13 +28,54 @@ interface StoredAlert {
 }
 
 // Crypto icon component fallback
-function CryptoIconFallback({
+function CryptoIcon({
   symbol,
   className = "h-6 w-6",
 }: {
   symbol: string;
   className?: string;
 }) {
+  const [iconError, setIconError] = useState(false);
+  const [iconSrc, setIconSrc] = useState<string>("");
+
+  useEffect(() => {
+    // Mapeo de símbolos a IDs de CoinGecko
+    const coinGeckoIds: Record<string, string> = {
+      BTC: "bitcoin",
+      ETH: "ethereum",
+      SOL: "solana",
+      ADA: "cardano",
+      DOT: "polkadot",
+      LINK: "chainlink",
+      AVAX: "avalanche-2",
+      MATIC: "matic-network",
+    };
+
+    const coinId = coinGeckoIds[symbol];
+    if (coinId) {
+      setIconSrc(
+        `https://assets.coingecko.com/coins/images/${getImageId(
+          coinId
+        )}/thumb/${coinId}.png`
+      );
+    }
+  }, [symbol]);
+
+  // IDs de imágenes específicos de CoinGecko
+  const getImageId = (coinId: string): string => {
+    const imageIds: Record<string, string> = {
+      bitcoin: "1",
+      ethereum: "279",
+      solana: "4128",
+      cardano: "975",
+      polkadot: "12171",
+      chainlink: "877",
+      "avalanche-2": "12559",
+      "matic-network": "4713",
+    };
+    return imageIds[coinId] || "1";
+  };
+
   const colorMap: Record<string, string> = {
     BTC: "#f97316",
     ETH: "#3b82f6",
@@ -46,17 +87,30 @@ function CryptoIconFallback({
     MATIC: "#7c3aed",
   };
 
+  if (iconError || !iconSrc) {
+    // Fallback a ícono colorido
+    return (
+      <div
+        className={`rounded-full flex items-center justify-center ${className}`}
+        style={{
+          backgroundColor: colorMap[symbol] || "#6b7280",
+          width: "24px",
+          height: "24px",
+        }}
+      >
+        <span className='text-white font-bold text-xs'>{symbol}</span>
+      </div>
+    );
+  }
+
   return (
-    <div
-      className={`rounded-full flex items-center justify-center ${className}`}
-      style={{
-        backgroundColor: colorMap[symbol] || "#6b7280",
-        width: "24px",
-        height: "24px",
-      }}
-    >
-      <span className='text-white font-bold text-xs'>{symbol}</span>
-    </div>
+    <img
+      src={iconSrc}
+      alt={symbol}
+      className={`${className} rounded-full`}
+      onError={() => setIconError(true)}
+      style={{ width: "24px", height: "24px" }}
+    />
   );
 }
 
@@ -244,7 +298,7 @@ export function AlertNotification() {
               <div className='flex items-center justify-between'>
                 <div className='flex items-center space-x-3'>
                   <div className='flex items-center space-x-2'>
-                    <CryptoIconFallback symbol={notification.coin} />
+                    <CryptoIcon symbol={notification.coin} />
                     <div>
                       <div className='flex items-center space-x-2'>
                         <span className='font-heading font-bold text-white text-sm'>
